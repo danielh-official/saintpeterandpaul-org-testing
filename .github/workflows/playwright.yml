@@ -1,0 +1,41 @@
+name: Playwright
+
+on:
+  schedule:
+    - cron: '0 12 * * *' # daily, 12:00 UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --reporter=html
+      # Publish the report even when tests fail; the job still fails, so GitHub emails you.
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: playwright-report
+      - if: ${{ !cancelled() }}
+        id: deploy
+        uses: actions/deploy-pages@v4
